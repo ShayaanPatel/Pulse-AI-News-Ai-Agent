@@ -10,7 +10,7 @@ Pulse AI is an event-driven and CRON-scheduled background agent that aggregates 
 
 🏗️ System Architecture
 -------------------
-This Is the Preview Of How the Workflow Looks Like:-
+This Is the Preview Of How the Workflow Looks Like In n8n:-
 ![Pulse AI Workflow Preview](n8nWorkflowPreviewPulseAI.png)
 The workflow leverages lightweight state management, concurrent API ingestion, and batch data routing:
 
