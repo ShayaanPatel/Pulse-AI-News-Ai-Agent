@@ -1,0 +1,852 @@
+{
+  "name": "🤖 Pulse AI Daily News AI Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "### 📰 News Digest Flow\nRuns hourly → checks 10 AM UTC → fetches 3 RSS feeds → Gemma AI picks Top 10 → sends to all subscribers via Telegram.",
+        "height": 120,
+        "width": 340,
+        "color": 4
+      },
+      "id": "sticky-flow2",
+      "name": "📌 FLOW 2 — Daily News Scheduler",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        736,
+        2688
+      ]
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "tg-trigger",
+      "name": "📩 Telegram Bot Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        224,
+        144
+      ],
+      "webhookId": "1909563c-8b54-47d6-83ae-2495d37bf7cc",
+      "credentials": {
+        "telegramApi": {
+          "id": "DEyi5CDJi0dFDp9K",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.message.text.toLowerCase().trim() }}",
+                    "operator": {
+                      "operation": "contains",
+                      "type": "string"
+                    },
+                    "rightValue": "start"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                }
+              }
+            },
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.message.text.toLowerCase().trim() }}",
+                    "operator": {
+                      "operation": "contains",
+                      "type": "string"
+                    },
+                    "rightValue": "stop"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                }
+              }
+            },
+            {
+              "conditions": {
+                "combinator": "and",
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.message.text.toLowerCase().trim() }}",
+                    "operator": {
+                      "operation": "contains",
+                      "type": "string"
+                    },
+                    "rightValue": "now"
+                  }
+                ],
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                }
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "route-cmd",
+      "name": "🔍 Route Command",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        464,
+        128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Persist subscriber to workflow static data (survives restarts)\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.subscribers) staticData.subscribers = [];\n\nconst msg = $('📩 Telegram Bot Trigger').item.json.message;\nconst chatId = String(msg.chat.id);\nconst firstName = msg.from?.first_name || 'Friend';\nconst username = msg.from?.username || '';\n\nconst alreadySubscribed = staticData.subscribers.some(s => s.chatId === chatId);\n\nif (!alreadySubscribed) {\n  staticData.subscribers.push({\n    chatId,\n    firstName,\n    username,\n    subscribedAt: new Date().toISOString()\n  });\n}\n\nreturn [{ json: { chatId, firstName, alreadySubscribed, total: staticData.subscribers.length } }];"
+      },
+      "id": "code-subscribe",
+      "name": "💾 Subscribe User",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        -48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Remove subscriber from workflow static data\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.subscribers) staticData.subscribers = [];\n\nconst msg = $('📩 Telegram Bot Trigger').item.json.message;\nconst chatId = String(msg.chat.id);\nconst firstName = msg.from?.first_name || 'Friend';\n\nconst wasSubscribed = staticData.subscribers.some(s => s.chatId === chatId);\nstaticData.subscribers = staticData.subscribers.filter(s => s.chatId !== chatId);\n\nreturn [{ json: { chatId, firstName, wasSubscribed, total: staticData.subscribers.length } }];"
+      },
+      "id": "code-unsubscribe",
+      "name": "🗑️ Unsubscribe User",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('📩 Telegram Bot Trigger').item.json.message.from.id }}",
+        "text": "={{ $json.wasSubscribed \n  ? '👋 *You have been unsubscribed.*\\n\\nYou will no longer receive the Daily AI News Digest.\\n\\nWe will miss you! Type /start anytime to re-subscribe. 💙' \n  : '🤔 *Hmm, you were not subscribed.*\\n\\nNo worries! Type /start to join and get daily AI news. 📰' }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "tg-reply-unsub",
+      "name": "🛑 Reply — Unsubscribed",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        992,
+        288
+      ],
+      "webhookId": "faa161d7-d033-4191-80c1-22e6bf699bd4",
+      "credentials": {
+        "telegramApi": {
+          "id": "DEyi5CDJi0dFDp9K",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Load subscribers from persistent static data\nconst staticData = $getWorkflowStaticData('global');\nconst subscribers = staticData.subscribers || [];\n\nreturn [{\n  json: {\n    shouldSend: subscribers.length > 0,\n    subscribers,\n    subscriberCount: subscribers.length,\n    reason: subscribers.length === 0\n      ? 'No subscribers yet — skipping broadcast'\n      : `Sending digest to ${subscribers.length} subscriber(s)!`\n  }\n}];"
+      },
+      "id": "code-check-time",
+      "name": "🕙 Load Subscribers",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.shouldSend }}",
+              "operator": {
+                "operation": "equals",
+                "type": "boolean"
+              },
+              "rightValue": true
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "id": "if-should-send",
+      "name": "❓ Has Subscribers?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        928,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "id": "merge-feeds",
+      "name": "🔗 Merge All Feeds",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1424,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert AI journalist and news curator. Today is {{ $json.today }}.\n\nI have collected {{ $json.articleCount }} AI-related articles from Google News, HackerNews, and MIT Technology Review.\n\nYour task:\n1. Select the TOP 10 most important and unique AI stories from today\n2. PRIORITIZE: new model releases, research breakthroughs, major company announcements, AI policy/regulation, funding rounds, open-source releases\n3. AVOID duplicates — if multiple sources cover the same story, pick the best version\n4. Write an engaging, concise Telegram digest with emoji\n5. Keep each summary to 1-2 sentences max\n\nOutput EXACTLY this format (no extra text, no markdown code blocks):\n\n🤖 *Daily AI News Digest*\n📅 {{ $json.today }}\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n1️⃣ *[Headline]* — [1-2 sentence summary]\n\n2️⃣ *[Headline]* — [summary]\n\n3️⃣ *[Headline]* — [summary]\n\n4️⃣ *[Headline]* — [summary]\n\n5️⃣ *[Headline]* — [summary]\n\n6️⃣ *[Headline]* — [summary]\n\n7️⃣ *[Headline]* — [summary]\n\n8️⃣ *[Headline]* — [summary]\n\n9️⃣ *[Headline]* — [summary]\n\n🔟 *[Headline]* — [summary]\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n💡 _Curated by PulseAIAgent_ | _/stop to unsubscribe_\n\nRaw articles to analyze:\n\n{{ $json.rawContent }}"
+      },
+      "id": "llm-chain",
+      "name": "🧠 AI Summarizer Chain",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        1968,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the AI-generated digest\nconst digest = $('🧠 AI Summarizer Chain').item.json.text\n  || '⚠️ *AI Digest Unavailable*\\n\\nCould not generate today\\'s digest. Please check back tomorrow!';\n\n// Get all subscribers from static data\nconst staticData = $getWorkflowStaticData('global');\nconst subscribers = staticData.subscribers || [];\n\nif (subscribers.length === 0) {\n  return [{ json: { skipped: true, reason: 'No subscribers to send to' } }];\n}\n\n// Return one item per subscriber so the Telegram node sends to each\nreturn subscribers.map(sub => ({\n  json: {\n    chatId: sub.chatId,\n    firstName: sub.firstName,\n    digest\n  }\n}));"
+      },
+      "id": "code-split",
+      "name": "👥 Split Per Subscriber",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2336,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Store requester's chatId in static data for after the AI processing\nconst staticData = $getWorkflowStaticData('global');\nconst msg = $json.message;\nstaticData.nowChatId = String(msg.chat.id);\nstaticData.nowFirstName = msg.from?.first_name || 'Friend';\nreturn [{ json: { triggered: true } }];"
+      },
+      "id": "now-setup",
+      "name": "⚡ /now Setup",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        1072
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "id": "now-merge1",
+      "name": "🔗 /now Merge 1",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1280,
+        1056
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert AI journalist. Today is {{ $json.today }}.\n\nI have {{ $json.articleCount }} AI articles pulled from Google News, Hacker News, and Reddit. Select the TOP 10 most important and unique AI stories. You must ensure a diverse mix of stories from all provided platforms. Prioritize: model releases, breakthroughs, major announcements, policy news, funding. Keep summaries to 1-2 sentences.\n\nOutput EXACTLY this format (no code blocks, no extra text):\n\n⚡ *Instant AI News Digest*\n📅 {{ $json.today }}\n━━━━━━━━━━━━━━━━━━━━━━━━\n\n1️⃣ *[Headline]* — [summary]\n\n2️⃣ *[Headline]* — [summary]\n\n3️⃣ *[Headline]* — [summary]\n\n4️⃣ *[Headline]* — [summary]\n\n5️⃣ *[Headline]* — [summary]\n\n6️⃣ *[Headline]* — [summary]\n\n7️⃣ *[Headline]* — [summary]\n\n8️⃣ *[Headline]* — [summary]\n\n9️⃣ *[Headline]* — [summary]\n\n🔟 *[Headline]* — [summary]\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n💡 _Curated live by PulseAIAgent_\n\nRaw articles:\n\n{{ $json.rawContent }}"
+      },
+      "id": "now-llm-chain",
+      "name": "🧠 /now AI Chain",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        1952,
+        1008
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('🔍 Route Command').item.json.message.from.id }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "now-send",
+      "name": "📬 /now Send Reply",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2448,
+        1008
+      ],
+      "webhookId": "f2eb977c-de20-4ea7-9577-089348fa946b",
+      "credentials": {
+        "telegramApi": {
+          "id": "DEyi5CDJi0dFDp9K",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "let combinedText = \"\";\nlet totalSources = $input.all().length;\n\n// Loop through the 3 items (Google, Algolia, Reddit)\nfor (const item of $input.all()) {\n  // Turn their raw JSON data into text and add it to our giant block\n  combinedText += JSON.stringify(item.json) + \"\\n\\n---\\n\\n\";\n}\n\n// Output exactly what your AI prompt is looking for\nreturn [{\n  json: {\n    rawContent: combinedText,\n    articleCount: \"a large batch of\", \n    today: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1616,
+        1008
+      ],
+      "id": "3ee9c33c-b50a-49a3-a9ce-1964e79fd5ec",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "let combinedText = \"\";\nlet totalSources = $input.all().length;\n\n// Loop through the 3 items (Google, Algolia, Reddit)\nfor (const item of $input.all()) {\n  // Turn their raw JSON data into text and add it to our giant block\n  combinedText += JSON.stringify(item.json) + \"\\n\\n---\\n\\n\";\n}\n\n// Output exactly what your AI prompt is looking for\nreturn [{\n  json: {\n    rawContent: combinedText,\n    articleCount: \"a large batch of\", \n    today: new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1664,
+        560
+      ],
+      "id": "72972865-292f-4d8d-8cc6-9e0bab4b1f5f",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 0 11 * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        368,
+        560
+      ],
+      "id": "ec3aefe3-bf24-48f2-9de7-4289f93629e2",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1968,
+        752
+      ],
+      "id": "742d1350-bc11-4577-ba6b-fa5b7a441681",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "aaMQE17Lq2roPAzT",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3-flash-preview",
+        "options": {}
+      },
+      "id": "now-gemma",
+      "name": "/Now Users Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1952,
+        1200
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "aaMQE17Lq2roPAzT",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "=={{ $('🧠 AI Summarizer Chain').first().json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "tg-broadcast",
+      "name": "📤 Broadcast to Daily Subscribers",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2592,
+        560
+      ],
+      "webhookId": "8279691a-c709-4eab-85d8-652c11e4ec99",
+      "credentials": {
+        "telegramApi": {
+          "id": "DEyi5CDJi0dFDp9K",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://www.technologyreview.com/feed/",
+        "options": {}
+      },
+      "id": "now-mit",
+      "name": "Reddit AI News /Now",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        992,
+        1184
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=artificial+intelligence+AI+machine+learning+LLM&hl=en-US&gl=US&ceid=US:en",
+        "options": {}
+      },
+      "id": "http-google-news",
+      "name": "📡 Fetch Google News AI Daily",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1200,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://hn.algolia.com/api/v1/search_by_date",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "AI"
+            },
+            {
+              "name": "hitsPerPage",
+              "value": "20"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0b7bd0c6-a047-4b1d-8640-88b8ba6476d9",
+      "name": "Algolia AI News Daily",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1200,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://hn.algolia.com/api/v1/search_by_date",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "AI"
+            },
+            {
+              "name": "hitsPerPage",
+              "value": "20"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "now-hackernews",
+      "name": "Algolia AI News /Now",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        992,
+        1072
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=artificial+intelligence+AI+machine+learning+LLM&hl=en-US&gl=US&ceid=US:en",
+        "options": {}
+      },
+      "id": "now-google",
+      "name": "Fetch Google News /Now",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        992,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://www.technologyreview.com/feed/",
+        "options": {}
+      },
+      "id": "62362195-4087-4357-8ff6-9c103c637154",
+      "name": "Reddit AI News Daily",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1200,
+        720
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "📩 Telegram Bot Trigger": {
+      "main": [
+        [
+          {
+            "node": "🔍 Route Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Route Command": {
+      "main": [
+        [
+          {
+            "node": "💾 Subscribe User",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🗑️ Unsubscribe User",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "⚡ /now Setup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "💾 Subscribe User": {
+      "main": [
+        []
+      ]
+    },
+    "🗑️ Unsubscribe User": {
+      "main": [
+        [
+          {
+            "node": "🛑 Reply — Unsubscribed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🕙 Load Subscribers": {
+      "main": [
+        [
+          {
+            "node": "❓ Has Subscribers?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ Has Subscribers?": {
+      "main": [
+        [
+          {
+            "node": "📡 Fetch Google News AI Daily",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Algolia AI News Daily",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Reddit AI News Daily",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "🧠 AI Summarizer Chain": {
+      "main": [
+        [
+          {
+            "node": "👥 Split Per Subscriber",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "👥 Split Per Subscriber": {
+      "main": [
+        [
+          {
+            "node": "📤 Broadcast to Daily Subscribers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔗 Merge All Feeds": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚡ /now Setup": {
+      "main": [
+        [
+          {
+            "node": "Fetch Google News /Now",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Algolia AI News /Now",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Reddit AI News /Now",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔗 /now Merge 1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🧠 /now AI Chain": {
+      "main": [
+        [
+          {
+            "node": "📬 /now Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "🧠 /now AI Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "🧠 AI Summarizer Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "🕙 Load Subscribers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "🧠 AI Summarizer Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "/Now Users Gemini Chat Model": {
+      "main": [
+        []
+      ],
+      "ai_languageModel": [
+        [
+          {
+            "node": "🧠 /now AI Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reddit AI News /Now": {
+      "main": [
+        [
+          {
+            "node": "🔗 /now Merge 1",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "📡 Fetch Google News AI Daily": {
+      "main": [
+        [
+          {
+            "node": "🔗 Merge All Feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Algolia AI News Daily": {
+      "main": [
+        [
+          {
+            "node": "🔗 Merge All Feeds",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Algolia AI News /Now": {
+      "main": [
+        [
+          {
+            "node": "🔗 /now Merge 1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Fetch Google News /Now": {
+      "main": [
+        [
+          {
+            "node": "🔗 /now Merge 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reddit AI News Daily": {
+      "main": [
+        [
+          {
+            "node": "🔗 Merge All Feeds",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timezone": "Asia/Kolkata",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "47a7be93-9de5-462e-9dcb-7ec034da3a87",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f7af8a9a70f109afc376faab49d177e4a57c8329102281d4db27a34ab4cde229"
+  },
+  "id": "s9C1jaGJLeELQmca",
+  "tags": []
+}
